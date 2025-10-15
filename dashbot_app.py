@@ -30,6 +30,7 @@ client = Groq(api_key=GROQ_API_KEY)
 embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 chroma_client = chromadb.PersistentClient(path="./chroma_data")
 
+
 def normalize_craving(craving):
     """Normalize craving text consistently across scripts."""
     if not craving:
@@ -39,10 +40,9 @@ def normalize_craving(craving):
     craving = craving.strip("_")
     return craving
 
-    
+
 def get_collection_for_zip(zip_code, craving=None):
     """Get collection for specific ZIP + craving (if exists)."""
-    # Normalize craving to match Chroma naming (no spaces, lowercase)
     safe_craving = normalize_craving(craving)
     collection_name = f"restaurants_{zip_code}{'_' + safe_craving if safe_craving else ''}"
     print(f"🧭 Looking for collection: {collection_name}")
@@ -61,55 +61,54 @@ def get_collection_for_zip(zip_code, craving=None):
         return None
 
 
-
 def fetch_and_build_for_zip(zip_code, craving=None):
     """Fetch restaurants and build vector store for ZIP + craving."""
     print(f"🔄 Fetching data for ZIP {zip_code} (craving: {craving or 'general'})...")
-    
+
     try:
-        # Run fetch script
         result = subprocess.run(
             ["python3", "fetch_serpapi_data.py", zip_code, craving or ""],
             capture_output=True,
             text=True,
-            timeout=90
+            timeout=90,
         )
-        
         if result.returncode != 0:
             print(f"❌ Fetch failed: {result.stderr}")
             return False
-        
-        # Run build script
+
         result = subprocess.run(
             ["python3", "build_store.py", zip_code],
             capture_output=True,
             text=True,
-            timeout=90
+            timeout=90,
         )
-        
         if result.returncode != 0:
             print(f"❌ Build failed: {result.stderr}")
             return False
-        
+
         print(f"✅ Successfully built collection for {zip_code}")
         return True
-        
+
     except Exception as e:
         print(f"❌ Error: {e}")
         return False
 
+
 # ==============================
 # 🍱 RESTAURANT SEARCH
-# ==============================    
+# ==============================
 def search_restaurants(craving, zip_code, neighborhood=None, exclude_names=None):
     """Search for top 3 restaurants (excludes previous ones if specified)."""
     exclude_names = exclude_names or []
 
-    # 🧹 Normalize craving so "hot ramen" = "ramen"
     craving = craving.lower().strip()
-    craving = re.sub(r"\b(hot|spicy|tasty|delicious|yummy|good|nice|warm|fresh|best|real|authentic)\b", "", craving, flags=re.I).strip()
+    craving = re.sub(
+        r"\b(hot|spicy|tasty|delicious|yummy|good|nice|warm|fresh|best|real|authentic)\b",
+        "",
+        craving,
+        flags=re.I,
+    ).strip()
 
-    # Optional quick synonym map
     synonym_map = {
         "ramen noodles": "ramen",
         "noodles": "ramen",
@@ -119,20 +118,21 @@ def search_restaurants(craving, zip_code, neighborhood=None, exclude_names=None)
     }
     craving = synonym_map.get(craving, craving)
 
-    # Get or create collection
     collection = get_collection_for_zip(zip_code, craving)
     if not collection:
         print(f"📥 No data for {zip_code}, fetching now...")
         craving = normalize_craving(craving)
         success = fetch_and_build_for_zip(zip_code, craving)
         if not success:
-            return [{
-                "name": "🍔 Uh oh!",
-                "categories": "System Notice",
-                "rating": "N/A",
-                "address": "",
-                "zip_code": zip_code
-            }]
+            return [
+                {
+                    "name": "🍔 Uh oh!",
+                    "categories": "System Notice",
+                    "rating": "N/A",
+                    "address": "",
+                    "zip_code": zip_code,
+                }
+            ]
         collection = get_collection_for_zip(zip_code, craving)
 
     if not collection:
@@ -144,44 +144,42 @@ def search_restaurants(craving, zip_code, neighborhood=None, exclude_names=None)
         user_vector = embedding_model.encode(search_query).tolist()
 
         results = collection.query(
-            query_embeddings=[user_vector],
-            n_results=30,
-            include=["metadatas"]
+            query_embeddings=[user_vector], n_results=30, include=["metadatas"]
         )
 
         restaurants = results.get("metadatas", [[]])[0]
         print(f"📊 Found {len(restaurants)} restaurants")
 
-        # Exclude previously shown
         restaurants = [r for r in restaurants if r.get("name") not in exclude_names]
 
-        # Sort by rating
         restaurants = sorted(
             restaurants,
-            key=lambda r: float(r.get("rating", 0)) if r.get("rating") != "N/A" else 0,
-            reverse=True
+            key=lambda r: float(r.get("rating", 0))
+            if r.get("rating") != "N/A"
+            else 0,
+            reverse=True,
         )
 
         top3 = restaurants[:3]
         print(f"✅ Returning top {len(top3)}:")
         for r in top3:
             print(f"   - {r.get('name')} ({r.get('categories')}) ⭐ {r.get('rating')}")
-
         return top3
 
     except Exception as e:
         print(f"⚠️ Search error: {e}")
         return []
 
+
 # ==============================
-# 💬 CONVERSATIONAL RESPONSE (updated)
+# 💬 CONVERSATIONAL RESPONSE (updated, grounded)
 # ==============================
 def generate_response(user_input, restaurants, session_state):
     """Generate warm, dynamic, emotion-aware responses with grounded factual data."""
-    # ====== Tone & Sentiment Detection ======
-    angry_words = ["angry", "upset", "frustrated", "mad", "annoyed", "pissed", "irritated"]
-    happy_words = ["thank you", "thanks", "perfect", "yay", "awesome", "great", "love it", "ok thank you", "thankyou", "ok thanks"]
-    goodbye_words = ["bye", "see you", "thanks bye", "thank you bye", "goodnight", "good night", "take care", "see ya"]
+    # ====== Tone Detection ======
+    angry_words = ["angry", "upset", "frustrated", "mad", "annoyed", "pissed"]
+    happy_words = ["thank you", "thanks", "perfect", "awesome", "great", "love it", "ok thanks"]
+    goodbye_words = ["bye", "see you", "goodnight", "take care"]
 
     user_lower = user_input.lower().strip()
     tone = "neutral"
@@ -195,68 +193,66 @@ def generate_response(user_input, restaurants, session_state):
         tone = "grateful"
         end_convo = True
 
-    # ====== Handle Emotional Responses ======
     if tone == "frustrated":
         return (
             f"I’m really sorry you’re feeling frustrated, {session_state.name} 😔 "
-            "Let’s fix this! Maybe tell me exactly what kind of food you’re craving or your nearby street name? "
-            "I’ll do my best to find something you’ll love ❤️"
+            "Let’s fix this! Maybe tell me exactly what kind of food you’re craving or your nearby street name? ❤️"
         )
 
-    if tone == "grateful" and ("thank" in user_lower or "bye" in user_lower or "ok" in user_lower):
+    if tone == "grateful" and ("thank" in user_lower or "bye" in user_lower):
         return (
-            f"Aww, thank you {session_state.name}! 💖 I'm so glad I could help today. "
-            "I'll remember your craving in case you come back later! "
+            f"Aww, thank you {session_state.name}! 💖 I'm so glad I could help. "
             "Enjoy your meal and see you soon 🍜✨"
         )
 
     # ===== No Restaurants Found =====
     if not restaurants:
-        if restaurants is False:
-            return "🍔 Uh oh! I’ve hit my daily limit for restaurant lookups — come back tomorrow for fresh foodie picks! ❤️"
+        print("⚠️ DEBUG — No restaurants returned from search.")
         return (
-            f"Looks like I couldn’t find any great {session_state.last_craving or 'food'} spots "
-            f"around {session_state.zip_code} 😅 Maybe try a nearby ZIP or tweak the craving?"
+            f"Looks like I couldn’t find any {session_state.last_craving or 'food'} spots "
+            f"around {session_state.zip_code} 😅 Maybe try another ZIP or craving?"
         )
 
-    # ====== Create descriptive restaurant context ======
-    restaurant_context = "\n".join([
-        f"{i+1}. {r['name']} — rated {r['rating']}⭐. "
-        f"Located at {r['address']}. Category: {r['categories']}. "
-        f"Customers often say this spot perfectly satisfies cravings for {session_state.last_craving or 'great food'}!"
-        for i, r in enumerate(restaurants)
-    ])
+    # ====== Build restaurant context ======
+    restaurant_context = "\n".join(
+        [
+            f"{i+1}. {r['name']} — rated {r['rating']}⭐. "
+            f"Located at {r['address']}. Category: {r['categories']}. "
+            f"Perfect for cravings like {session_state.last_craving or 'great food'}."
+            for i, r in enumerate(restaurants)
+        ]
+    )
 
-    # ====== Friendly descriptive system prompt ======
+    # ====== Grounded system prompt ======
     system_prompt = f"""
-    You are DashBot 🍜, a cheerful foodie assistant who loves describing local restaurants vividly but truthfully.
+You are DashBot 🍜, a friendly but factual restaurant recommender.
 
-    TASK:
-    - Introduce the top 3 restaurants below.
-    - Mention each name, rating, and full address.
-    - Write one short, natural line about what makes each special or why it fits the craving.
-    - Keep the tone warm and conversational, not robotic.
-    - Do NOT invent or rename any restaurants.
-    - End by asking the user which one sounds best.
+RULES:
+- Only use restaurants listed below. These are trusted database results.
+- Never invent or rename any restaurant.
+- If the list seems empty, say you couldn’t find any results.
+- Keep tone warm, concise, and conversational.
+- End by asking which one sounds best.
 
-    USER INFO:
-    Name: {session_state.name}
-    ZIP: {session_state.zip_code}
-    Craving: {session_state.last_craving or 'food'}
+USER:
+Name: {session_state.name}
+ZIP: {session_state.zip_code}
+Craving: {session_state.last_craving or 'food'}
 
-    RESTAURANTS:
-    {restaurant_context}
-    """
+RESTAURANTS (trusted data):
+{restaurant_context}
+"""
 
     try:
-        # ====== Generate model reply ======
+        print(f"DEBUG — Sending {len(restaurants)} restaurants to LLM.")
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_input},
             ],
-            temperature=0.2,  # adds a hint of personality
+            temperature=0,  # deterministic mode
+            top_p=1,
             max_tokens=400,
         )
 
@@ -265,19 +261,12 @@ def generate_response(user_input, restaurants, session_state):
         return reply
 
     except Exception as e:
-        error_message = str(e).lower()
-        if "rate limit" in error_message or "quota" in error_message or "limit exceeded" in error_message:
-            return (
-                "🍔 Oops! DashBot’s foodie brain is out of chats for the day. "
-                "Come back tomorrow for more delicious discoveries! 😋"
-            )
-        else:
-            print(f"⚠️ LLM error: {e}")
-            fallback_text = f"Here are 3 {session_state.last_craving or 'great'} spots, {session_state.name}! 😋\n\n"
-            for i, r in enumerate(restaurants, 1):
-                fallback_text += f"{i}. **{r['name']}** ({r['categories']}) ⭐ {r['rating']}\n"
-            fallback_text += "\n💡 *Try searching these on DoorDash!*"
-            return fallback_text
+        print(f"⚠️ LLM error: {e}")
+        fallback = f"Here are {len(restaurants)} {session_state.last_craving or 'great'} spots, {session_state.name}! 😋\n\n"
+        for i, r in enumerate(restaurants, 1):
+            fallback += f"{i}. **{r['name']}** ({r['categories']}) ⭐ {r['rating']}\n"
+        fallback += "\n💡 *Try searching these on DoorDash!*"
+        return fallback
 
 
 # ==============================
@@ -298,19 +287,16 @@ def dashbot_reply(user_input, session_state):
         name = cleaned.strip().split()[-1].capitalize() if cleaned.strip() else "Friend"
         if not name.isalpha():
             name = "Friend"
-
         session_state.name = name
         session_state.stage = "zip"
         return f"Nice to meet you, {name}! 🥰 What's your ZIP code?"
 
     # === ZIP STAGE ===
     elif session_state.stage == "zip":
-        if any(word in user_input.lower() for word in ["help", "find", "don't know", "do not know", "not sure", "unknown", "no idea"]):
+        if any(word in user_input.lower() for word in ["help", "find", "don't know", "unknown"]):
             return (
                 "No worries! 💌 Here’s how to find it:\n"
-                "🔍 Google 'what is my zip code'\n"
-                "📱 Or visit: https://www.zip-codes.com/search.asp\n"
-                "Then tell me your 5-digit ZIP!"
+                "🔍 Google 'what is my zip code'\n📱 Or visit: https://www.zip-codes.com/search.asp\nThen tell me your 5-digit ZIP!"
             )
 
         zip_match = re.search(r"\b\d{5}\b", user_input)
@@ -319,8 +305,7 @@ def dashbot_reply(user_input, session_state):
             session_state.stage = "neighborhood"
             return (
                 f"Perfect! ZIP {session_state.zip_code} 📍\n\n"
-                "What neighborhood are you in? (e.g., Downtown, Capitol Hill)\n"
-                "Or type 'skip' for the whole area!"
+                "What neighborhood are you in? (e.g., Downtown, Capitol Hill)\nOr type 'skip' for the whole area!"
             )
         else:
             return "Hmm, that doesn't look valid 🤔 Try entering a 5-digit ZIP (like 98105)."
@@ -340,16 +325,11 @@ def dashbot_reply(user_input, session_state):
     elif session_state.stage == "craving":
         user_text = user_input.lower().strip()
 
-        # --- Detect move/new location ---
-        moved_phrases = [
-            "moved", "new city", "new place", "different area",
-            "changed location", "relocated", "i’m in", "i am in"
-        ]
-        if any(phrase in user_text for phrase in moved_phrases):
+        moved_phrases = ["moved", "new city", "different area", "relocated", "i’m in"]
+        if any(p in user_text for p in moved_phrases):
             session_state.stage = "zip"
             return "No worries! Let’s update your location 🏡 What’s your new ZIP code?"
 
-        # --- Detect ZIP change mid-conversation ---
         zip_match = re.search(r"\b\d{5}\b", user_input)
         if zip_match:
             new_zip = zip_match.group(0)
@@ -357,7 +337,6 @@ def dashbot_reply(user_input, session_state):
                 session_state.zip_code = new_zip
                 return f"Got it! Switched to ZIP {new_zip} 📍 What are you craving?"
 
-        # --- Handle 'more' (get new recommendations) ---
         if any(word in user_text for word in ["more", "another", "else"]):
             if session_state.last_craving and session_state.last_restaurants:
                 exclude = [r.get("name") for r in session_state.last_restaurants]
@@ -365,14 +344,13 @@ def dashbot_reply(user_input, session_state):
                     session_state.last_craving,
                     session_state.zip_code,
                     getattr(session_state, "neighborhood", ""),
-                    exclude_names=exclude
+                    exclude_names=exclude,
                 )
                 session_state.last_restaurants = restaurants
                 return generate_response(session_state.last_craving, restaurants, session_state)
             return "Sure! What kind of food are you in the mood for? 😊"
-        
-        # --- Handle user selecting a restaurant or confirming a choice ---
-        if any(word in user_text for word in ["first", "second", "third", "this one", "that one", "sounds good", "sounds perfect", "i’ll try", "let’s go", "yes", "perfect"]):
+
+        if any(word in user_text for word in ["first", "second", "third", "this one", "that one", "sounds good", "perfect"]):
             if session_state.last_restaurants:
                 chosen = None
                 if "first" in user_text:
@@ -382,16 +360,13 @@ def dashbot_reply(user_input, session_state):
                 elif "third" in user_text and len(session_state.last_restaurants) > 2:
                     chosen = session_state.last_restaurants[2]
                 else:
-                    chosen = session_state.last_restaurants[0]  # default to top
-
+                    chosen = session_state.last_restaurants[0]
                 name = chosen.get("name")
                 return (
                     f"Yay, {session_state.name}! 🎉 Great choice — {name} is a local favorite. "
-                    f"Go ahead and check them out on DoorDash or stop by if you’re nearby 🍕✨"
+                    f"Go ahead and check them out on DoorDash 🍕✨"
                 )
 
-
-        # --- Handle 'order' or 'menu' ---
         if any(word in user_text for word in ["order", "menu", "link"]):
             if session_state.last_restaurants:
                 top = session_state.last_restaurants[0]
@@ -399,17 +374,15 @@ def dashbot_reply(user_input, session_state):
                 return f"Ready to order from **{name}**? 🍽️\n\nSearch '{name}' on the DoorDash app!"
             return "Tell me what you're craving first 😄"
 
-        # --- Main craving search ---
         craving = user_input
         session_state.last_craving = craving
 
         restaurants = search_restaurants(
-            craving,
-            session_state.zip_code,
-            getattr(session_state, "neighborhood", "")
+            craving, session_state.zip_code, getattr(session_state, "neighborhood", "")
         )
         session_state.last_restaurants = restaurants
 
         return generate_response(user_input, restaurants, session_state)
 
     return "I'm here to help you find delicious food! 🍜"
+
