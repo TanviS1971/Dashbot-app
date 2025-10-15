@@ -237,6 +237,7 @@ def generate_response(user_input, restaurants, session_state):
     - If frustrated, be gentle and apologetic.
 
     STRICT RULES:
+    - You are only allowed to reference restaurants from the provided list below.
     - You must not create, imagine, or infer any new restaurant names.
     - If none of the listed restaurants match the user's craving, respond that you couldn't find one.
     - Do not paraphrase or rename the restaurant names.
