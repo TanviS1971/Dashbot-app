@@ -128,7 +128,11 @@ def fetch_restaurants(zip_code, craving=None):
             if not name:
                 continue
             
-            embedding_text = f"{name}. Category: {categories}. Located at {address}. Rated {rating} stars."
+            embedding_text = (
+                               f"{name}. Category: {categories}. "
+                               f"Known for {categories} dishes. Located at {address}. "
+                               f"Rated {rating} stars. A popular spot for people craving {categories} or similar foods."
+                              )
             
             all_restaurants.append({
                 "name": name,
