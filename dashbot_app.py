@@ -236,10 +236,12 @@ def generate_response(user_input, restaurants, session_state):
     - If they sound neutral, stay engaging and warm.
     - If frustrated, be gentle and apologetic.
 
-    CRITICAL RULES:
-    - Never make up restaurants.
-    - Always present exactly 3 from the list below.
+    STRICT RULES:
+    - You must not create, imagine, or infer any new restaurant names.
+    - If none of the listed restaurants match the user's craving, respond that you couldn't find one.
+    - Do not paraphrase or rename the restaurant names.
     - Always stay context-aware (name, ZIP, craving).
+
 
     User: {session_state.name}
     ZIP: {session_state.zip_code}
@@ -256,7 +258,7 @@ def generate_response(user_input, restaurants, session_state):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_input},
             ],
-            temperature=0.75,
+            temperature=0.5,
             max_tokens=400,
         )
 
