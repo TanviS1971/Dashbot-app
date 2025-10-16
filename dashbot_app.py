@@ -233,6 +233,7 @@ RULES:
 - If the list seems empty, say you couldn’t find any results.
 - Keep tone warm, concise, and conversational.
 - End by asking which one sounds best.
+- Give three restaurants always along with ratings and address
 
 USER:
 Name: {session_state.name}
