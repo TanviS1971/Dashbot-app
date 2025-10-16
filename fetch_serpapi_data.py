@@ -16,10 +16,10 @@ except:
     API_KEY = os.getenv("GOOGLE_PLACES_API_KEY")
 
 if not API_KEY:
-    raise ValueError("❌ GOOGLE_PLACES_API_KEY not found!")
+    raise ValueError(" GOOGLE_PLACES_API_KEY not found!")
 
 # ==============================
-# 📍 UTILITIES
+# UTILITIES
 # ==============================
 
 def normalize_craving(craving):
@@ -41,7 +41,7 @@ def validate_zip_code(zip_code):
     return bool(re.match(r"^\d{5}(-\d{4})?$", zip_code))
 
 # ==============================
-# 🍽️ FETCH RESTAURANTS
+# FETCH RESTAURANTS
 # ==============================
 def fetch_restaurants(zip_code, craving=None):
     """
@@ -167,11 +167,11 @@ def fetch_restaurants(zip_code, craving=None):
     output_path = f"restaurants_{zip_code}_{safe_craving}.csv"
     
     df.to_csv(output_path, index=False, encoding="utf-8")
-    print(f"✅ Saved {len(df)} restaurants to {output_path}")
+    print(f"Saved {len(df)} restaurants to {output_path}")
     return True
 
 # ==============================
-# 🚀 MAIN
+# MAIN
 # ==============================
 if __name__ == "__main__":
     if len(sys.argv) > 2:

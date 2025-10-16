@@ -3,12 +3,12 @@ import re
 from dashbot_app import dashbot_reply
 
 # ==============================
-# 🌟 PAGE CONFIG
+# PAGE CONFIG
 # ==============================
 st.set_page_config(page_title="🍔 DashBot", page_icon="🍜", layout="centered")
 
 # ==============================
-# 🎨 CUSTOM CSS
+# CUSTOM CSS
 # ==============================
 st.markdown("""
 <style>
@@ -64,7 +64,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================
-# 💾 SESSION STATE INIT
+# SESSION STATE INIT
 # ==============================
 if "messages" not in st.session_state:
     st.session_state.messages = [
@@ -78,7 +78,7 @@ if "messages" not in st.session_state:
     st.session_state.last_restaurants = []
 
 # ==============================
-# 🧠 (Optional) CACHE HOOK
+# (Optional) CACHE HOOK
 # ==============================
 @st.cache_data(show_spinner=False)
 def cache_restaurants(zip_code, craving):
@@ -86,7 +86,7 @@ def cache_restaurants(zip_code, craving):
     return f"Cached dataset for {zip_code}-{craving}"
 
 # ==============================
-# 🤖 HEADER
+# HEADER
 # ==============================
 st.markdown("""
 <div class="bot-header">
@@ -96,7 +96,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================
-# 💬 DISPLAY CHAT
+# DISPLAY CHAT
 # ==============================
 for chat in st.session_state.messages:
     bubble_class = "user-bubble" if chat["role"] == "user" else "bot-bubble"
@@ -106,7 +106,7 @@ for chat in st.session_state.messages:
 st.markdown("<script>window.scrollTo(0, document.body.scrollHeight);</script>", unsafe_allow_html=True)
 
 # ==============================
-# 🧾 CHAT INPUT
+# CHAT INPUT
 # ==============================
 placeholder_map = {
     "name": "Type your name...",
@@ -131,7 +131,7 @@ if user_input:
     st.rerun()
 
 # ==============================
-# 🔄 START OVER BUTTON
+# START OVER BUTTON
 # ==============================
 # Only show when user is not in name stage
 if st.session_state.stage != "name":

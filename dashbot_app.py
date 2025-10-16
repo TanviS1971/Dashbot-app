@@ -9,7 +9,7 @@ from groq import Groq
 import subprocess
 
 # ==============================
-# 🌟 ENV SETUP
+#  ENV SETUP
 # ==============================
 load_dotenv()
 
@@ -20,12 +20,12 @@ except:
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 if not GROQ_API_KEY:
-    raise ValueError("❌ GROQ_API_KEY not found!")
+    raise ValueError(" GROQ_API_KEY not found!")
 
 client = Groq(api_key=GROQ_API_KEY)
 
 # ==============================
-# 🧠 MODELS & DATABASE
+#  MODELS & DATABASE
 # ==============================
 embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 chroma_client = chromadb.PersistentClient(path="./chroma_data")
@@ -45,25 +45,25 @@ def get_collection_for_zip(zip_code, craving=None):
     """Get collection for specific ZIP + craving (if exists)."""
     safe_craving = normalize_craving(craving)
     collection_name = f"restaurants_{zip_code}{'_' + safe_craving if safe_craving else ''}"
-    print(f"🧭 Looking for collection: {collection_name}")
+    print(f" Looking for collection: {collection_name}")
 
     try:
         collection = chroma_client.get_collection(collection_name)
         count = collection.count()
         if count > 0:
-            print(f"✅ Found {count} restaurants in {collection_name}")
+            print(f" Found {count} restaurants in {collection_name}")
             return collection
         else:
-            print(f"⚠️ Collection {collection_name} is empty.")
+            print(f" Collection {collection_name} is empty.")
             return None
     except Exception as e:
-        print(f"⚠️ Could not load {collection_name}: {e}")
+        print(f" Could not load {collection_name}: {e}")
         return None
 
 
 def fetch_and_build_for_zip(zip_code, craving=None):
     """Fetch restaurants and build vector store for ZIP + craving."""
-    print(f"🔄 Fetching data for ZIP {zip_code} (craving: {craving or 'general'})...")
+    print(f" Fetching data for ZIP {zip_code} (craving: {craving or 'general'})...")
 
     try:
         result = subprocess.run(
@@ -73,7 +73,7 @@ def fetch_and_build_for_zip(zip_code, craving=None):
             timeout=90,
         )
         if result.returncode != 0:
-            print(f"❌ Fetch failed: {result.stderr}")
+            print(f" Fetch failed: {result.stderr}")
             return False
 
         result = subprocess.run(
@@ -83,19 +83,19 @@ def fetch_and_build_for_zip(zip_code, craving=None):
             timeout=90,
         )
         if result.returncode != 0:
-            print(f"❌ Build failed: {result.stderr}")
+            print(f" Build failed: {result.stderr}")
             return False
 
-        print(f"✅ Successfully built collection for {zip_code}")
+        print(f" Successfully built collection for {zip_code}")
         return True
 
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f" Error: {e}")
         return False
 
 
 # ==============================
-# 🍱 RESTAURANT SEARCH
+#  RESTAURANT SEARCH
 # ==============================
 def search_restaurants(craving, zip_code, neighborhood=None, exclude_names=None):
     """Search for top 3 restaurants (excludes previous ones if specified)."""
@@ -120,7 +120,7 @@ def search_restaurants(craving, zip_code, neighborhood=None, exclude_names=None)
 
     collection = get_collection_for_zip(zip_code, craving)
     if not collection:
-        print(f"📥 No data for {zip_code}, fetching now...")
+        print(f" No data for {zip_code}, fetching now...")
         craving = normalize_craving(craving)
         success = fetch_and_build_for_zip(zip_code, craving)
         if not success:
@@ -140,7 +140,7 @@ def search_restaurants(craving, zip_code, neighborhood=None, exclude_names=None)
 
     try:
         search_query = f"{craving} {neighborhood or ''} {zip_code}"
-        print(f"🔍 Searching: {search_query}")
+        print(f" Searching: {search_query}")
         user_vector = embedding_model.encode(search_query).tolist()
 
         results = collection.query(
@@ -148,7 +148,7 @@ def search_restaurants(craving, zip_code, neighborhood=None, exclude_names=None)
         )
 
         restaurants = results.get("metadatas", [[]])[0]
-        print(f"📊 Found {len(restaurants)} restaurants")
+        print(f" Found {len(restaurants)} restaurants")
 
         restaurants = [r for r in restaurants if r.get("name") not in exclude_names]
 
@@ -161,18 +161,18 @@ def search_restaurants(craving, zip_code, neighborhood=None, exclude_names=None)
         )
 
         top3 = restaurants[:3]
-        print(f"✅ Returning top {len(top3)}:")
+        print(f" Returning top {len(top3)}:")
         for r in top3:
             print(f"   - {r.get('name')} ({r.get('categories')}) ⭐ {r.get('rating')}")
         return top3
 
     except Exception as e:
-        print(f"⚠️ Search error: {e}")
+        print(f" Search error: {e}")
         return []
 
 
 # ==============================
-# 💬 CONVERSATIONAL RESPONSE (updated, grounded)
+# CONVERSATIONAL RESPONSE (updated, grounded)
 # ==============================
 def generate_response(user_input, restaurants, session_state):
     """Generate warm, dynamic, emotion-aware responses with grounded factual data."""
@@ -271,7 +271,7 @@ RESTAURANTS (trusted data):
 
 
 # ==============================
-# 💬 MAIN CHAT LOGIC
+# MAIN CHAT LOGIC
 # ==============================
 def dashbot_reply(user_input, session_state):
     """Main conversational flow."""

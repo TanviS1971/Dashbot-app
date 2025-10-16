@@ -21,16 +21,16 @@ def build_vector_store(zip_code=None):
     """Build vector store for specific ZIP or auto-detect from CSV."""
     
     print("=" * 60)
-    print("🧠 DashBot Vector Store Builder (Per-ZIP)")
+    print("DashBot Vector Store Builder (Per-ZIP)")
     print("=" * 60)
     
     # ==================================================
-    # 🔍 FIND CSV FILE
+    # FIND CSV FILE
     # ==================================================
     if zip_code:
         candidates = glob.glob(f"restaurants_{zip_code}*.csv")
         if not candidates:
-            raise FileNotFoundError(f"❌ No CSV found for ZIP {zip_code}")
+            raise FileNotFoundError(f"No CSV found for ZIP {zip_code}")
         csv_path = max(candidates, key=os.path.getmtime)
     else:
         csv_files = glob.glob("restaurants_*.csv")
@@ -40,12 +40,12 @@ def build_vector_store(zip_code=None):
             csv_path = max(csv_files, key=os.path.getmtime)
     
     if not os.path.exists(csv_path):
-        raise FileNotFoundError(f"❌ {csv_path} not found!")
+        raise FileNotFoundError(f"{csv_path} not found!")
     
-    print(f"✅ Loading {csv_path}")
+    print(f"Loading {csv_path}")
     
     # ==================================================
-    # 🩵 Extract craving name from filename
+    # Extract craving name from filename
     # ==================================================
     craving = None
     match = re.search(r"restaurants_(\d+)_?(.*)\.csv", os.path.basename(csv_path))
@@ -60,17 +60,17 @@ def build_vector_store(zip_code=None):
     safe_craving = normalize_craving(craving) if craving else "general"
     collection_name = f"restaurants_{detected_zip}{'_' + safe_craving if safe_craving else ''}"
     
-    print(f"📦 Collection to build: {collection_name}")
+    print(f"Collection to build: {collection_name}")
     
     # ==================================================
-    # 📄 LOAD CSV DATA
+    # LOAD CSV DATA
     # ==================================================
     try:
         df = pd.read_csv(csv_path)
     except Exception as e:
-        raise Exception(f"❌ Error reading CSV: {e}")
+        raise Exception(f"Error reading CSV: {e}")
     
-    print("\n🧹 Cleaning data...")
+    print("\n Cleaning data...")
     initial_count = len(df)
     df = df.dropna(subset=["name"])
     df = df.drop_duplicates(subset=["name", "address"])
@@ -80,46 +80,46 @@ def build_vector_store(zip_code=None):
     if removed > 0:
         print(f"   Removed {removed} invalid/duplicate entries")
     
-    print(f"📄 {len(df)} unique restaurants ready")
+    print(f" {len(df)} unique restaurants ready")
     if len(df) == 0:
-        raise ValueError("❌ No valid restaurants!")
+        raise ValueError(" No valid restaurants!")
     
     # ==================================================
-    # 🧠 LOAD EMBEDDING MODEL
+    # LOAD EMBEDDING MODEL
     # ==================================================
-    print("\n🧠 Loading embedding model...")
+    print("\n Loading embedding model...")
     model = SentenceTransformer("all-MiniLM-L6-v2")
-    print("✅ Model loaded successfully")
+    print(" Model loaded successfully")
     
     # ==================================================
-    # 💾 CONNECT TO CHROMA DB
+    #  CONNECT TO CHROMA DB
     # ==================================================
-    print("\n💾 Connecting to ChromaDB...")
+    print("\n Connecting to ChromaDB...")
     client = chromadb.PersistentClient(path="./chroma_data")
     collection = client.get_or_create_collection(collection_name)
-    print(f"✅ Connected to collection '{collection_name}'")
+    print(f" Connected to collection '{collection_name}'")
     
     # Clear existing entries
     try:
         all_ids = collection.get()["ids"]
         if all_ids:
             collection.delete(ids=all_ids)
-            print("🧹 Cleared previous data from collection")
+            print(" Cleared previous data from collection")
     except Exception:
         pass
     
     # ==================================================
-    # 🔢 GENERATE EMBEDDINGS
+    #  GENERATE EMBEDDINGS
     # ==================================================
-    print("\n📝 Preparing embeddings...")
+    print("\n Preparing embeddings...")
     texts = df["embedding_text"].fillna("").tolist()
     embeddings = model.encode(texts, batch_size=32, show_progress_bar=True, convert_to_numpy=True)
-    print(f"✅ Generated {len(embeddings)} embeddings")
+    print(f" Generated {len(embeddings)} embeddings")
     
     # ==================================================
-    # 🧾 STORE IN CHROMA
+    #  STORE IN CHROMA
     # ==================================================
-    print("\n💾 Storing embeddings in ChromaDB...")
+    print("\n Storing embeddings in ChromaDB...")
     ids = [str(i) for i in range(len(df))]
     metadatas = [
         {
@@ -142,28 +142,28 @@ def build_vector_store(zip_code=None):
             documents=texts[i:end],
         )
     
-    print(f"✅ Indexed {len(df)} restaurants")
+    print(f" Indexed {len(df)} restaurants")
     
     final_count = collection.count()
-    print(f"\n🔍 Verification: {final_count} items now in collection")
+    print(f"\n Verification: {final_count} items now in collection")
     print("\n" + "=" * 60)
-    print("🎉 Build Complete!")
+    print(" Build Complete!")
     print("=" * 60)
-    print(f"✅ Collection: {collection_name}")
-    print(f"✅ Restaurants: {final_count}")
-    print(f"📁 Chroma Data Path: ./chroma_data/")
+    print(f" Collection: {collection_name}")
+    print(f" Restaurants: {final_count}")
+    print(f" Chroma Data Path: ./chroma_data/")
     print("=" * 60)
 
 
 # ==================================================
-# 🚀 MAIN ENTRY POINT
+#  MAIN ENTRY POINT
 # ==================================================
 if __name__ == "__main__":
     try:
         zip_code = sys.argv[1] if len(sys.argv) > 1 else None
         build_vector_store(zip_code)
     except KeyboardInterrupt:
-        print("\n\n⚠️ Interrupted")
+        print("\n\n Interrupted")
     except Exception as e:
-        print(f"\n❌ Failed: {e}")
+        print(f"\n Failed: {e}")
         sys.exit(1)
