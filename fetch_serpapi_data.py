@@ -6,7 +6,7 @@ import sys
 from dotenv import load_dotenv
 import time
 
-# ===== LOAD ENV =====
+# ===== LOAD Environment =====
 load_dotenv()
 
 try:
