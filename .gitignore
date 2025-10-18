@@ -38,7 +38,6 @@ env/
 *.swp
 *.swo
 *~
-.DS_Store
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -66,6 +65,10 @@ Thumbs.db
 *.bak
 *.swp
 
-# DO NOT IGNORE (need for deployment):
-# restaurants.csv
-# chroma_data/
+# ========================================
+# CRITICAL: Dynamically generated files
+# These should NOT be committed!
+# ========================================
+chroma_data/
+.devcontainer/
+restaurants_*.csv
