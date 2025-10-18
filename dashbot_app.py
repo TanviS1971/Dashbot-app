@@ -114,11 +114,79 @@ def search_restaurants(craving, zip_code, neighborhood=None, exclude_names=None)
     ).strip()
 
     synonym_map = {
+        # Noodles & Ramen
         "ramen noodles": "ramen",
         "noodles": "ramen",
-        "shawarma wrap": "shawarma",
+        "noodle soup": "ramen",
+        "pho": "vietnamese",
+        "pad thai": "thai",
+        "lo mein": "chinese",
+        "chow mein": "chinese",
+        
+        # Indian
         "indian curry": "indian",
+        "curry": "indian",
+        "butter chicken": "indian",
+        "tikka masala": "indian",
+        "biryani": "indian",
+        "naan": "indian",
+        
+        # Mexican
         "mexican tacos": "mexican",
+        "tacos": "mexican",
+        "burritos": "mexican",
+        "burrito": "mexican",
+        "quesadilla": "mexican",
+        "nachos": "mexican",
+        "enchiladas": "mexican",
+        "fajitas": "mexican",
+        
+        # Middle Eastern
+        "shawarma wrap": "shawarma",
+        "kebab": "middle eastern",
+        "falafel": "middle eastern",
+        "gyro": "greek",
+        "hummus": "middle eastern",
+        
+        # Burgers & American
+        "burger": "hamburger",
+        "burgers": "hamburger",
+        "cheeseburger": "hamburger",
+        
+        # Pizza & Italian
+        "pizza pie": "pizza",
+        "pasta": "italian",
+        "spaghetti": "italian",
+        "lasagna": "italian",
+        
+        # Asian
+        "sushi roll": "sushi",
+        "sashimi": "japanese",
+        "dim sum": "chinese",
+        "dumplings": "chinese",
+        "fried rice": "chinese",
+        "stir fry": "asian",
+        "bibimbap": "korean",
+        "korean bbq": "korean",
+        
+        # Sandwiches
+        "sandwich": "deli",
+        "sub": "sandwich",
+        "hoagie": "sandwich",
+        
+        # Wings & Chicken
+        "wings": "chicken wings",
+        "chicken wings": "chicken wings",
+        "fried chicken": "chicken",
+        
+        # Other
+        "bbq": "barbecue",
+        "barbeque": "barbecue",
+        "seafood": "fish",
+        "fish and chips": "seafood",
+        "soup": "comfort food",
+        "poke": "hawaiian",
+        "poke bowl": "hawaiian",
     }
     craving = synonym_map.get(craving, craving)
 
