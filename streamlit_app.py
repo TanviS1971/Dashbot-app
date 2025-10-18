@@ -1,11 +1,19 @@
 import streamlit as st
 import re
+import pandas as pd
 from dashbot_app import dashbot_reply
 
 # ==============================
 # PAGE CONFIG
 # ==============================
 st.set_page_config(page_title="🍔 DashBot", page_icon="🍜", layout="centered")
+
+# ==============================
+# DEBUG SIDEBAR
+# ==============================
+st.sidebar.markdown("### 🔍 Debug Info")
+st.sidebar.markdown(f"**App loaded at:** {pd.Timestamp.now()}")
+st.sidebar.markdown(f"**Python running:** ✅")
 
 # ==============================
 # CUSTOM CSS
@@ -78,6 +86,24 @@ if "messages" not in st.session_state:
     st.session_state.last_restaurants = []
 
 # ==============================
+# DEBUG SIDEBAR - Session State
+# ==============================
+if st.sidebar.checkbox("Show Session State", value=True):
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("**Current Session:**")
+    st.sidebar.write(f"🏷️ Stage: `{st.session_state.stage}`")
+    st.sidebar.write(f"👤 Name: `{st.session_state.name or 'Not set'}`")
+    st.sidebar.write(f"📍 ZIP: `{st.session_state.zip_code or 'Not set'}`")
+    st.sidebar.write(f"🏘️ Neighborhood: `{st.session_state.neighborhood or 'Not set'}`")
+    st.sidebar.write(f"🍽️ Craving: `{st.session_state.last_craving or 'Not set'}`")
+    st.sidebar.write(f"📊 Restaurants found: `{len(st.session_state.last_restaurants)}`")
+    
+    if st.session_state.last_restaurants:
+        st.sidebar.markdown("**Last Search Results:**")
+        for i, r in enumerate(st.session_state.last_restaurants, 1):
+            st.sidebar.write(f"{i}. {r.get('name')} ⭐ {r.get('rating')}")
+
+# ==============================
 # (Optional) CACHE HOOK
 # ==============================
 @st.cache_data(show_spinner=False)
@@ -123,12 +149,37 @@ if user_input:
     
     # Show loading spinner during data fetching
     with st.spinner("🍳 Cooking up your restaurant list..."):
-        reply = dashbot_reply(user_input, st.session_state)
+        try:
+            reply = dashbot_reply(user_input, st.session_state)
+        except Exception as e:
+            reply = f"⚠️ Oops! Something went wrong: {str(e)}\n\nPlease try again!"
+            st.error(f"Error details: {e}")
+            import traceback
+            st.code(traceback.format_exc())
     
     # Add bot reply
     st.session_state.messages.append({"role": "assistant", "content": reply})
     
     st.rerun()
+
+# ==============================
+# DEBUG EXPANDER
+# ==============================
+with st.expander("🔍 Detailed Debug Panel", expanded=False):
+    st.markdown("### Session State Details")
+    st.json({
+        "stage": st.session_state.stage,
+        "name": st.session_state.name,
+        "zip_code": st.session_state.zip_code,
+        "neighborhood": st.session_state.neighborhood,
+        "last_craving": st.session_state.last_craving,
+        "restaurants_count": len(st.session_state.last_restaurants),
+        "messages_count": len(st.session_state.messages)
+    })
+    
+    if st.session_state.last_restaurants:
+        st.markdown("### Last Restaurant Search Results")
+        st.dataframe(pd.DataFrame(st.session_state.last_restaurants))
 
 # ==============================
 # START OVER BUTTON
@@ -139,3 +190,11 @@ if st.session_state.stage != "name":
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.rerun()
+
+# ==============================
+# FOOTER DEBUG INFO
+# ==============================
+st.markdown("---")
+st.caption("🤖 DashBot v1.0 | Powered by Google Places API & Groq LLM")
+if st.session_state.stage == "craving" and st.session_state.last_restaurants:
+    st.caption(f"✅ Found {len(st.session_state.last_restaurants)} restaurants in ZIP {st.session_state.zip_code}")
