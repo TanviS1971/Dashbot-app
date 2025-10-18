@@ -1,3 +1,4 @@
+# DashBot v2.1 - Direct imports fix - 2025-10-17
 import os
 import re
 import chromadb
