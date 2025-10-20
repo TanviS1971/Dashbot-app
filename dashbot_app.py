@@ -1,4 +1,4 @@
-# DashBot v2.1 - Direct imports fix - 2025-10-17
+# DashBot v2.2
 import os
 import re
 import chromadb
@@ -420,11 +420,13 @@ def dashbot_reply(user_input, session_state):
     elif session_state.stage == "craving":
         user_text = user_input.lower().strip()
 
+        # Check for location change
         moved_phrases = ["moved", "new city", "different area", "relocated", "i'm in"]
         if any(p in user_text for p in moved_phrases):
             session_state.stage = "zip"
             return "No worries! Let's update your location 🏡 What's your new ZIP code?"
 
+        # Check for ZIP code change
         zip_match = re.search(r"\b\d{5}\b", user_input)
         if zip_match:
             new_zip = zip_match.group(0)
@@ -432,7 +434,16 @@ def dashbot_reply(user_input, session_state):
                 session_state.zip_code = new_zip
                 return f"Got it! Switched to ZIP {new_zip} 📍 What are you craving?"
 
-        if any(word in user_text for word in ["more", "another", "else", "different"]):
+        # Check for craving change request
+        change_craving_phrases = ["changed my craving", "change my craving", "different craving", "new craving", "want something else", "something different"]
+        if any(phrase in user_text for phrase in change_craving_phrases):
+            # Clear previous search results
+            session_state.last_craving = None
+            session_state.last_restaurants = []
+            return f"No problem, {session_state.name}! 😊 What are you craving now? 🍽️"
+        
+        # Check for "more options" request (same craving, different restaurants)
+        if any(word in user_text for word in ["more", "another", "else", "different", "other options"]):
             if session_state.last_craving and session_state.last_restaurants:
                 exclude = [r.get("name") for r in session_state.last_restaurants]
                 restaurants = search_restaurants(
@@ -445,18 +456,57 @@ def dashbot_reply(user_input, session_state):
                 return generate_response(session_state.last_craving, restaurants, session_state)
             return "Sure! What kind of food are you in the mood for? 😊"
 
-        if any(word in user_text for word in ["first", "second", "third", "this one", "that one", "sounds good", "perfect", "1", "2", "3"]):
-            if session_state.last_restaurants:
-                chosen = None
-                if "first" in user_text or "1" in user_text:
-                    chosen = session_state.last_restaurants[0]
-                elif ("second" in user_text or "2" in user_text) and len(session_state.last_restaurants) > 1:
-                    chosen = session_state.last_restaurants[1]
-                elif ("third" in user_text or "3" in user_text) and len(session_state.last_restaurants) > 2:
-                    chosen = session_state.last_restaurants[2]
-                else:
-                    chosen = session_state.last_restaurants[0]
-                
+        # === ENHANCED RESTAURANT SELECTION ===
+        # Check if we have restaurants to select from
+        if session_state.last_restaurants:
+            selection_keywords = ["first", "second", "third", "this one", "that one", "sounds good", "looks good", "perfect", "sounds best", "looks best", "i think", "i'll take", "i want", "1", "2", "3"]
+            
+            # Check if user is trying to select a restaurant OR mentions a restaurant name
+            is_selecting = any(word in user_text for word in selection_keywords)
+            chosen = None
+            
+            # Method 1: Check for position words (first, second, third, 1, 2, 3)
+            if "first" in user_text or user_text.strip() == "1":
+                chosen = session_state.last_restaurants[0]
+                print(f"✅ Selected by position: first/1")
+            elif ("second" in user_text or user_text.strip() == "2") and len(session_state.last_restaurants) > 1:
+                chosen = session_state.last_restaurants[1]
+                print(f"✅ Selected by position: second/2")
+            elif ("third" in user_text or user_text.strip() == "3") and len(session_state.last_restaurants) > 2:
+                chosen = session_state.last_restaurants[2]
+                print(f"✅ Selected by position: third/3")
+            
+            # Method 2: Check if user mentioned a restaurant name directly
+            if not chosen:
+                user_lower = user_input.lower()
+                for i, restaurant in enumerate(session_state.last_restaurants):
+                    restaurant_name = restaurant.get("name", "").lower()
+                    
+                    # Split restaurant name into words for matching
+                    name_words = [w for w in restaurant_name.split() if len(w) > 2]  # Ignore short words like "el", "la", "the"
+                    
+                    if len(name_words) > 0:
+                        # Check if significant portion of name appears in user input
+                        matches = sum(1 for word in name_words if word in user_lower)
+                        
+                        # Matching logic:
+                        # - For 1-2 word names: need at least 1 match
+                        # - For 3+ word names: need at least 2 matches
+                        required_matches = 1 if len(name_words) <= 2 else 2
+                        
+                        if matches >= required_matches:
+                            chosen = restaurant
+                            is_selecting = True  # Mark as selection to prevent new search
+                            print(f"✅ Matched restaurant by name: {restaurant_name} (matched {matches}/{len(name_words)} words)")
+                            break
+            
+            # Method 3: If still no match but user is clearly selecting, default to first
+            if not chosen and is_selecting:
+                chosen = session_state.last_restaurants[0]
+                print(f"✅ Defaulting to first restaurant due to selection keywords")
+            
+            # If we found a match, return the selection response
+            if chosen and is_selecting:
                 name = chosen.get("name")
                 address = chosen.get("address")
                 return (
@@ -465,6 +515,7 @@ def dashbot_reply(user_input, session_state):
                     f"Search for '{name}' on the DoorDash app to order! 🍕✨"
                 )
 
+        # Check for order/menu/link requests
         if any(word in user_text for word in ["order", "menu", "link", "doordash"]):
             if session_state.last_restaurants:
                 top = session_state.last_restaurants[0]
@@ -472,6 +523,7 @@ def dashbot_reply(user_input, session_state):
                 return f"Ready to order from **{name}**? 🍽️\n\nSearch '{name}' on the DoorDash app!"
             return "Tell me what you're craving first 😄"
 
+        # New craving search
         craving = user_input
         session_state.last_craving = craving
 
