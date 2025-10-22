@@ -21,7 +21,7 @@ Restaurant Metadata - Captures ratings, cuisine types, and addresses for semanti
 
 LLM & AI Components
 =
-Groq API — Powers the conversational responses and natural language understanding
+Groq API — Powers the conversational responses and natural language understanding using the llama-3.1-8b-instant model
 
 SentenceTransformers — Generates semantic embeddings using the all-MiniLM-L6-v2 model
 
