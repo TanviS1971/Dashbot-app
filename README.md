@@ -5,6 +5,7 @@ A conversational AI assistant that helps you discover restaurants based on your 
 What It Does
 =
 ->Asks for your name, ZIP code, and what you're craving
+
 ->Fetches restaurant data from Google Places API
 ->Provides personalized restaurant recommendations through conversation
 
